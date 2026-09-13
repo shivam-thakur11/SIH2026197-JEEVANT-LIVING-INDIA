@@ -9,6 +9,7 @@ const {
 } = require('../controllers/workshopController');
 const { requireAuth } = require('../middleware/authMiddleware');
 const { requireRole } = require('../middleware/roleMiddleware');
+const { validate, workshopValidation } = require('../validators');
 
 const router = express.Router();
 
@@ -20,7 +21,7 @@ router.get('/:id', getWorkshopById);
 router.post('/:id/enroll', enrollWorkshop);
 
 // Protected: create workshop (artisan or admin)
-router.post('/', requireAuth, requireRole('artisan', 'admin'), createWorkshop);
+router.post('/', requireAuth, requireRole('artisan', 'admin'), validate(workshopValidation), createWorkshop);
 
 // Protected: update/delete workshop (admin or artisan)
 router.put('/:id', requireAuth, requireRole('artisan', 'admin'), updateWorkshop);

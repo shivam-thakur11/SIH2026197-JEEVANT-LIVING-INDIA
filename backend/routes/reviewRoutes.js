@@ -9,6 +9,7 @@ const {
 } = require('../controllers/reviewController');
 const { requireAuth } = require('../middleware/authMiddleware');
 const { requireRole } = require('../middleware/roleMiddleware');
+const { validate, reviewValidation } = require('../validators');
 
 const router = express.Router();
 
@@ -17,7 +18,7 @@ router.get('/', getAllReviews);
 router.get('/:id', getReviewById);
 
 // Protected: submit review (any authenticated user)
-router.post('/', requireAuth, createReview);
+router.post('/', requireAuth, validate(reviewValidation), createReview);
 
 // Protected: Admin moderation (support PUT, PATCH, and toggle)
 router.put('/:id', requireAuth, requireRole('admin'), updateReview);

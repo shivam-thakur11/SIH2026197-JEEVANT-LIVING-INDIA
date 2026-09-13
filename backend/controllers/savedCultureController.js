@@ -1,3 +1,4 @@
+const mongoose = require('mongoose');
 const SavedCulture = require('../models/SavedCulture');
 const Tradition = require('../models/Tradition');
 const AppError = require('../utils/AppError');
@@ -15,7 +16,11 @@ const getSavedCultures = async (req, res, next) => {
     if (isDBConnected()) {
       const filter = {};
       if (userId) {
-        filter.$or = [{ user: userId }, { userId }];
+        if (mongoose.Types.ObjectId.isValid(userId)) {
+          filter.$or = [{ user: userId }, { userId: String(userId) }];
+        } else {
+          filter.userId = String(userId);
+        }
       }
 
       const p = Math.max(1, parseInt(page, 10) || 1);
@@ -62,24 +67,36 @@ const toggleSavedCulture = async (req, res, next) => {
     }
 
     if (isDBConnected()) {
-      const existing = await SavedCulture.findOne({
+      const isUserObj = mongoose.Types.ObjectId.isValid(userId);
+      const isTradObj = mongoose.Types.ObjectId.isValid(traditionId);
+
+      const findQuery = {
         $or: [
-          { userId, traditionId },
-          { user: userId, tradition: traditionId },
+          { userId: String(userId), traditionId: String(traditionId) },
+          ...(isUserObj && isTradObj ? [{ user: userId, tradition: traditionId }] : []),
         ],
-      });
+      };
+
+      const existing = await SavedCulture.findOne(findQuery);
 
       if (existing) {
         await SavedCulture.findByIdAndDelete(existing._id);
         return res.json({ success: true, isLiveDatabase: true, saved: false, traditionId });
       }
 
-      const tradition = await Tradition.findById(traditionId);
+      let tradition = null;
+      if (isTradObj) {
+        tradition = await Tradition.findById(traditionId);
+      }
+      if (!tradition) {
+        tradition = await Tradition.findOne({ $or: [{ _id: isTradObj ? traditionId : null }, { title: new RegExp(traditionId, 'i') }] });
+      }
+
       const created = await SavedCulture.create({
-        user: userId,
-        userId,
-        tradition: traditionId,
-        traditionId,
+        user: isUserObj ? userId : null,
+        userId: String(userId),
+        tradition: isTradObj ? traditionId : null,
+        traditionId: String(traditionId),
         traditionName: tradition ? (tradition.title || tradition.name) : 'Cultural Tradition',
         state: tradition ? tradition.state : '',
         category: tradition ? tradition.category : '',

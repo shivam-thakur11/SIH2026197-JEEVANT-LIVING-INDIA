@@ -8,8 +8,9 @@ const {
   rejectArtisan,
   deleteArtisan,
 } = require('../controllers/artisanController');
-const { requireAuth } = require('../middleware/authMiddleware');
+const { requireAuth, optionalAuth } = require('../middleware/authMiddleware');
 const { requireRole } = require('../middleware/roleMiddleware');
+const { validate, artisanValidation } = require('../validators');
 
 const router = express.Router();
 
@@ -17,8 +18,8 @@ const router = express.Router();
 router.get('/', getAllArtisans);
 router.get('/:id', getArtisanById);
 
-// Protected: Artisan or admin can register/apply
-router.post('/', requireAuth, requireRole('artisan', 'admin'), createArtisan);
+// Public / Onboarding: Prospective artisan application or admin creation
+router.post('/', optionalAuth, validate(artisanValidation), createArtisan);
 
 // Protected: Admin only operations (support both PUT and PATCH)
 router.put('/:id', requireAuth, requireRole('admin'), updateArtisan);

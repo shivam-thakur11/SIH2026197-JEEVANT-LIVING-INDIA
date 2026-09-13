@@ -21,6 +21,7 @@ import {
   Globe,
   Bell,
   Palette,
+  ShieldCheck,
 } from 'lucide-react';
 import { useState, useRef, useEffect } from 'react';
 import { Outlet } from 'react-router-dom';
@@ -40,7 +41,11 @@ const LearnerLayout = () => {
     cartCount,
     setIsCartOpen,
     wishlist,
+    savedCultures,
     isAuthenticated,
+    notifications,
+    markNotificationRead,
+    markAllNotificationsAsRead,
   } = useApp();
 
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -66,29 +71,7 @@ const LearnerLayout = () => {
     { code: 'gu', name: 'ગુજરાતી (Gujarati)' },
   ];
 
-  const notifications = [
-    {
-      id: 1,
-      title: 'GI Verification Approved',
-      desc: 'Smt. Dulari Devi - Madhubani lineage authenticated by Nodal Ministry.',
-      time: '10m ago',
-      unread: true,
-    },
-    {
-      id: 2,
-      title: 'New Masterclass Live',
-      desc: 'Jaipur Blue Pottery atelier with Kripal Singh guild starting in 2 days.',
-      time: '2h ago',
-      unread: true,
-    },
-    {
-      id: 3,
-      title: '0% Platform Fee Guarantee',
-      desc: '100% of fair-trade artisan purchases transfer directly via DBT.',
-      time: '1d ago',
-      unread: false,
-    },
-  ];
+  const unreadNotifsCount = (notifications || []).filter((n) => n.unread || !n.read).length;
 
   // Compact navbar on scroll
   useEffect(() => {
@@ -264,38 +247,88 @@ const LearnerLayout = () => {
             {/* Notifications */}
             <div className="nav-dropdown-wrapper" ref={notifDropdownRef}>
               <button
-                className="nav-action-btn"
+                className="nav-action-btn notif-toggle-btn"
                 onClick={() => setNotifDropdownOpen(!notifDropdownOpen)}
                 title="Notifications"
                 aria-label="Notifications"
               >
                 <Bell size={19} />
-                <span className="nav-badge notif-badge">2</span>
+                {unreadNotifsCount > 0 && (
+                  <span className="nav-badge notif-badge">{unreadNotifsCount}</span>
+                )}
               </button>
               {notifDropdownOpen && (
                 <div className="nav-popover-menu notif-popover">
-                  <div className="popover-header">
-                    <span>Notifications</span>
-                    <span className="badge-pill-xs">2 New</span>
+                  <div className="notif-header">
+                    <div className="notif-header-title">
+                      <span>Notifications</span>
+                      {unreadNotifsCount > 0 && (
+                        <span className="notif-badge-pill">{unreadNotifsCount} New</span>
+                      )}
+                    </div>
+                    {unreadNotifsCount > 0 && (
+                      <button
+                        type="button"
+                        className="notif-mark-all-btn"
+                        onClick={markAllNotificationsAsRead}
+                      >
+                        Mark all read
+                      </button>
+                    )}
                   </div>
                   <div className="notif-list">
-                    {notifications.map((n) => (
-                      <div key={n.id} className={`notif-item ${n.unread ? 'unread' : ''}`}>
-                        <div className="notif-title">{n.title}</div>
-                        <div className="notif-desc">{n.desc}</div>
-                        <div className="notif-time">{n.time}</div>
+                    {(notifications || []).length === 0 ? (
+                      <div style={{ padding: '24px 16px', textAlign: 'center', color: 'var(--text-muted, #71717a)' }}>
+                        <Bell size={24} style={{ opacity: 0.4, margin: '0 auto 8px' }} />
+                        <p style={{ margin: 0, fontSize: '0.85rem', fontWeight: 600 }}>No Notifications Yet</p>
+                        <small style={{ fontSize: '0.75rem', opacity: 0.8 }}>Living updates and masterclass notices will appear here.</small>
                       </div>
-                    ))}
+                    ) : (
+                      notifications.map((n) => (
+                        <div
+                          key={n.id || n._id}
+                          className={`notif-item ${n.unread || !n.read ? 'unread' : 'read'}`}
+                          onClick={() => markNotificationRead(n.id || n._id)}
+                        >
+                          <div className="notif-item-icon-box">
+                            {n.type === 'artisan' && <ShieldCheck size={16} className="notif-icon notif-icon-gi" />}
+                            {n.type === 'gi' && <ShieldCheck size={16} className="notif-icon notif-icon-gi" />}
+                            {n.type === 'workshop' && <Calendar size={16} className="notif-icon notif-icon-masterclass" />}
+                            {n.type === 'masterclass' && <Calendar size={16} className="notif-icon notif-icon-masterclass" />}
+                            {n.type === 'booking' && <Calendar size={16} className="notif-icon notif-icon-masterclass" />}
+                            {n.type === 'order' && <Sparkles size={16} className="notif-icon notif-icon-dbt" />}
+                            {n.type === 'review' && <Sparkles size={16} className="notif-icon notif-icon-dbt" />}
+                            {n.type === 'report' && <ShieldCheck size={16} className="notif-icon notif-icon-gi" />}
+                            {(!n.type || n.type === 'system') && <Bell size={16} className="notif-icon notif-icon-dbt" />}
+                          </div>
+                          <div className="notif-item-body">
+                            <div className="notif-item-header">
+                              <h4 className="notif-item-title">{n.title}</h4>
+                              {(n.unread || !n.read) && <span className="notif-unread-dot" />}
+                            </div>
+                            <p className="notif-item-desc">{n.message || n.desc}</p>
+                            <span className="notif-item-time">{n.time || (n.createdAt ? new Date(n.createdAt).toLocaleDateString('en-IN') : 'Recent')}</span>
+                          </div>
+                        </div>
+                      ))
+                    )}
                   </div>
                 </div>
               )}
             </div>
 
             {/* Wishlist Link */}
-            <Link to="/dashboard" className="nav-action-btn" title="Saved Wishlist" aria-label="Wishlist">
+            <Link
+              to="/dashboard?tab=wishlist"
+              className="nav-action-btn wishlist-btn"
+              title="Saved Heritage & Wishlist"
+              aria-label="Wishlist"
+            >
               <Heart size={19} />
-              {wishlist.length > 0 && (
-                <span className="nav-badge">{wishlist.length}</span>
+              {(wishlist.length + (savedCultures?.length || 0)) > 0 && (
+                <span className="nav-badge wishlist-badge">
+                  {wishlist.length + (savedCultures?.length || 0)}
+                </span>
               )}
             </Link>
 
@@ -472,6 +505,14 @@ const LearnerLayout = () => {
               >
                 <Users size={18} />
                 <span>Join as Master Artisan</span>
+              </NavLink>
+              <NavLink
+                to="/dashboard?tab=wishlist"
+                className="learner-nav-mobile-link"
+                onClick={() => setMobileMenuOpen(false)}
+              >
+                <Heart size={18} />
+                <span>Saved Heritage ({(wishlist?.length || 0) + (savedCultures?.length || 0)})</span>
               </NavLink>
               <NavLink
                 to="/dashboard"

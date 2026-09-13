@@ -1,8 +1,10 @@
+const mongoose = require('mongoose');
 const Order = require('../models/Order');
 const Payment = require('../models/Payment');
 const AppError = require('../utils/AppError');
 const { isDBConnected } = require('../config/db');
 const demoStore = require('../utils/demoStore');
+const { createNotificationRecord } = require('./notificationController');
 
 /**
  * GET /api/orders
@@ -15,7 +17,11 @@ const getOrders = async (req, res, next) => {
       const { userId, page = 1, limit = 12 } = req.query;
 
       if (userId) {
-        filter.$or = [{ user: userId }, { userId }];
+        if (mongoose.Types.ObjectId.isValid(userId)) {
+          filter.$or = [{ user: userId }, { userId }];
+        } else {
+          filter.$or = [{ userId }, { userEmail: userId }];
+        }
       }
 
       const p = Math.max(1, parseInt(page, 10) || 1);
@@ -110,6 +116,16 @@ const createOrder = async (req, res, next) => {
         status: 'Disbursed',
         paymentStatus: 'completed',
       });
+
+      // Trigger real notification
+      createNotificationRecord({
+        recipientRole: 'admin',
+        type: 'order',
+        title: 'New Handicraft Order Received',
+        message: `Order #${orderNum} for ₹${newOrder.totalAmount.toLocaleString('en-IN')} placed (Simulated DBT 0% Platform Fee).`,
+        relatedEntity: 'Order',
+        relatedEntityId: newOrder._id,
+      }).catch((e) => console.error('Notif error:', e.message));
 
       return res.status(201).json({ success: true, isLiveDatabase: true, data: newOrder });
     }

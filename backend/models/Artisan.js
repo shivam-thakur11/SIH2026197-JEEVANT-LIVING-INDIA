@@ -126,6 +126,20 @@ const artisanSchema = new mongoose.Schema(
       type: Number,
       default: 0,
     },
+    sourceName: {
+      type: String,
+      trim: true,
+      default: null,
+    },
+    sourceUrl: {
+      type: String,
+      trim: true,
+      default: null,
+    },
+    isDevelopmentSeed: {
+      type: Boolean,
+      default: false,
+    },
     isDemoData: {
       type: Boolean,
       default: false,

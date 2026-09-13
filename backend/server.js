@@ -24,6 +24,9 @@ const paymentRoutes = require('./routes/paymentRoutes');
 const reportRoutes = require('./routes/reportRoutes');
 const dashboardRoutes = require('./routes/dashboardRoutes');
 const aiRoutes = require('./routes/aiRoutes');
+const notificationRoutes = require('./routes/notificationRoutes');
+const wishlistRoutes = require('./routes/wishlistRoutes');
+const regionRoutes = require('./routes/regionRoutes');
 
 // Initialize MongoDB connection
 connectDB();
@@ -95,7 +98,11 @@ app.use('/api/reviews', reviewRoutes);
 app.use('/api/payments', paymentRoutes);
 app.use('/api/reports', reportRoutes);
 app.use('/api/admin', dashboardRoutes);
+app.use('/api/dashboard', dashboardRoutes);
 app.use('/api/ai', aiRoutes);
+app.use('/api/notifications', notificationRoutes);
+app.use('/api/wishlist', wishlistRoutes);
+app.use('/api/regions', regionRoutes);
 
 // Handle 404 routes
 app.use('*', (req, res) => {

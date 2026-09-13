@@ -234,8 +234,16 @@ const SearchResults = () => {
           {totalResults === 0 ? (
             <div className="search-empty-box">
               <Search size={48} />
-              <h3>No direct matches found for "{query}"</h3>
-              <p>Try searching for craft keywords like "Painting", "Pottery", "Silk", or a state like "Rajasthan" or "Bihar".</p>
+              <h3>
+                {query.trim()
+                  ? `No direct matches found for "${query}"`
+                  : "Discover Bharat's Living Cultural Heritage"}
+              </h3>
+              <p>
+                {query.trim()
+                  ? 'Try searching for craft keywords like "Painting", "Pottery", "Silk", or a state like "Rajasthan" or "Bihar".'
+                  : 'Search across master artisans, GI-certified handicrafts, interactive workshops, and living traditions.'}
+              </p>
               <div className="empty-suggestions-links">
                 <Link to="/artists" className="btn btn-outline">
                   Browse All Artists
@@ -244,7 +252,7 @@ const SearchResults = () => {
                   Browse All Products
                 </Link>
                 <Link to="/explore" className="btn btn-primary">
-                  Explore Traditions
+                  Explore Culture
                 </Link>
               </div>
             </div>

@@ -2,6 +2,7 @@ const Artisan = require('../models/Artisan');
 const AppError = require('../utils/AppError');
 const { isDBConnected } = require('../config/db');
 const demoStore = require('../utils/demoStore');
+const { createNotificationRecord } = require('./notificationController');
 
 /**
  * GET /api/artisans
@@ -114,14 +115,30 @@ const getArtisanById = async (req, res, next) => {
  */
 const createArtisan = async (req, res, next) => {
   try {
+    const cleanName = (req.body.name || 'artisan').toLowerCase().replace(/[^a-z0-9]/g, '');
+    const email = req.body.email || req.body.contactEmail || (req.user && req.user.email) || `${cleanName || 'artisan'}@jeevant.org`;
     const artisanData = {
       ...req.body,
+      email,
+      contactEmail: email,
+      verificationStatus: req.body.verificationStatus || 'pending',
       user: req.user ? req.user._id || req.user.id : req.body.user,
       userId: req.user ? req.user._id || req.user.id : req.body.userId,
     };
 
     if (isDBConnected()) {
       const artisan = await Artisan.create(artisanData);
+
+      // Trigger real notification for admin audit
+      createNotificationRecord({
+        recipientRole: 'admin',
+        type: 'artisan',
+        title: 'New Artisan Verification Request',
+        message: `${artisan.name} submitted GI registration credentials (${artisan.craft || 'Artisan Craft'}) for verification.`,
+        relatedEntity: 'Artisan',
+        relatedEntityId: artisan._id,
+      }).catch((e) => console.error('Notif error:', e.message));
+
       return res.status(201).json({
         success: true,
         message: 'Artisan application submitted for verification.',
@@ -203,6 +220,17 @@ const approveArtisan = async (req, res, next) => {
       if (!artisan) {
         return next(new AppError('Artisan not found.', 404));
       }
+
+      // Trigger notification for learners and admin
+      createNotificationRecord({
+        recipientRole: 'all',
+        type: 'artisan',
+        title: 'Master Artisan Verified',
+        message: `Master Artisan ${artisan.name} (${artisan.craft || 'Traditional Craft'}) has been verified and registered.`,
+        relatedEntity: 'Artisan',
+        relatedEntityId: artisan._id,
+      }).catch((e) => console.error('Notif error:', e.message));
+
       return res.json({
         success: true,
         message: `Master Artisan "${artisan.name}" has been approved and GI verified.`,

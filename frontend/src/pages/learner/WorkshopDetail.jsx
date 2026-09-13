@@ -371,17 +371,23 @@ const WorkshopDetail = () => {
 
                 <form onSubmit={handleConfirmBooking} className="booking-modal-form">
                   <div className="booking-pass-preview-card">
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                      <span className="receipt-label">Masterclass Enrollment</span>
+                      <span style={{ fontSize: '0.72rem', padding: '2px 8px', borderRadius: '4px', background: 'rgba(217, 119, 6, 0.15)', color: '#d97706', fontWeight: 600 }}>
+                        ⚡ Test Mode (Simulated Direct DBT)
+                      </span>
+                    </div>
                     <div className="preview-row">
                       <span>Instructor:</span>
                       <strong>{workshop.artisan}</strong>
                     </div>
                     <div className="preview-row">
-                      <span>Date & Time:</span>
+                      <span>Schedule:</span>
                       <strong>{workshop.date} · {workshop.time}</strong>
                     </div>
                     <div className="preview-row">
                       <span>Enrollment Fee:</span>
-                      <strong className="text-forest">{workshop.fee} (Zero Platform Deductions)</strong>
+                      <strong className="text-forest">{workshop.fee} (0% Platform Fee DBT Simulation)</strong>
                     </div>
                   </div>
 
@@ -409,7 +415,7 @@ const WorkshopDetail = () => {
 
                   <div className="form-notice">
                     <ShieldCheck size={16} />
-                    <span>Proceeds disburse immediately to {workshop.artisan}'s verified cluster account.</span>
+                    <span>Test mode: Enrollment is recorded in MongoDB with simulated direct payout to {workshop.artisan || 'Master Craftsperson'}.</span>
                   </div>
 
                   <div className="modal-footer">
@@ -421,7 +427,7 @@ const WorkshopDetail = () => {
                       Cancel
                     </button>
                     <button type="submit" className="btn btn-primary">
-                      Confirm & Generate Pass ({workshop.fee})
+                      Confirm Test Enrollment ({workshop.fee})
                     </button>
                   </div>
                 </form>

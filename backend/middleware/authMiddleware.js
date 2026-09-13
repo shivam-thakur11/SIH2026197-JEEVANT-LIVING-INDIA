@@ -66,7 +66,49 @@ const requireAuth = async (req, res, next) => {
   }
 };
 
+/**
+ * optionalAuth middleware
+ * Attaches req.user if a valid token is provided, without throwing 401 if absent.
+ */
+const optionalAuth = async (req, res, next) => {
+  try {
+    let token;
+    if (req.headers.authorization && req.headers.authorization.startsWith('Bearer ')) {
+      token = req.headers.authorization.split(' ')[1];
+    }
+
+    if (!token) {
+      req.user = null;
+      return next();
+    }
+
+    const decoded = jwt.verify(token, JWT_SECRET);
+
+    if (isDBConnected()) {
+      const currentUser = await User.findById(decoded.id);
+      req.user = currentUser && currentUser.isActive ? currentUser : null;
+      return next();
+    }
+
+    const demoUser = demoStore.getUserById(decoded.id) || {
+      _id: decoded.id,
+      id: decoded.id,
+      name: decoded.name || 'Demo User',
+      email: decoded.email || 'user@example.com',
+      role: decoded.role || 'learner',
+      isActive: true,
+      isDemo: true,
+    };
+    req.user = demoUser.isActive ? demoUser : null;
+    next();
+  } catch {
+    req.user = null;
+    next();
+  }
+};
+
 module.exports = {
   requireAuth,
   protect: requireAuth, // Alias for backward compatibility
+  optionalAuth,
 };

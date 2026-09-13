@@ -6,16 +6,16 @@ import Layout from './components/layout/Layout';         // Admin layout (PRESER
 import LearnerLayout from './layouts/LearnerLayout';     // Public learner layout
 
 // ─── Admin Pages (Existing — Fully Preserved) ────────────────────────────────
-import Login from './pages/Login';
-import Dashboard from './pages/Dashboard';
-import Artisans from './pages/Artisans';
-import Users from './pages/Users';
-import Traditions from './pages/Traditions';
-import Workshops from './pages/Workshops';
-import Reports from './pages/Reports';
-import Payments from './pages/Payments';
-import Reviews from './pages/Reviews';
-import Settings from './pages/Settings';
+import Login from './pages/admin/Login';
+import Dashboard from './pages/admin/Dashboard';
+import Artisans from './pages/admin/Artisans';
+import Users from './pages/admin/Users';
+import Traditions from './pages/admin/Traditions';
+import Workshops from './pages/admin/Workshops';
+import Reports from './pages/admin/Reports';
+import Payments from './pages/admin/Payments';
+import Reviews from './pages/admin/Reviews';
+import Settings from './pages/admin/Settings';
 
 // ─── Public / Learner Pages (SIH 2026 Wireframe Architecture) ───────────────
 import Home from './pages/learner/Home';
@@ -78,8 +78,11 @@ export function App() {
             <Route path="/about" element={<About />} />
             <Route path="/how-it-works" element={<HowItWorks />} />
 
-            {/* Cultural User Dashboard */}
+            {/* Cultural User Dashboard & Saved Heritage */}
             <Route path="/dashboard" element={<UserDashboard />} />
+            <Route path="/wishlist" element={<UserDashboard />} />
+            <Route path="/saved-heritage" element={<UserDashboard />} />
+            <Route path="/saved-cultures" element={<UserDashboard />} />
 
             {/* Dedicated Artist Studio & Dashboard */}
             <Route path="/artist/dashboard" element={<ArtistDashboard />} />

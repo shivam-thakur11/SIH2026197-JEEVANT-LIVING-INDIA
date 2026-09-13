@@ -2,6 +2,7 @@ const Report = require('../models/Report');
 const AppError = require('../utils/AppError');
 const { isDBConnected } = require('../config/db');
 const demoStore = require('../utils/demoStore');
+const { createNotificationRecord } = require('./notificationController');
 
 /** GET /api/reports — Admin: list reports */
 const getAllReports = async (req, res, next) => {
@@ -152,6 +153,17 @@ const resolveReport = async (req, res, next) => {
         { new: true }
       );
       if (!report) return next(new AppError('Report not found.', 404));
+
+      // Trigger notification
+      createNotificationRecord({
+        recipientRole: 'admin',
+        type: 'report',
+        title: 'Heritage Report Resolved',
+        message: `Report #${report._id || report.id} (${report.targetTitle || 'Audit Item'}) resolved: ${note}`,
+        relatedEntity: 'Report',
+        relatedEntityId: report._id,
+      }).catch((e) => console.error('Notif error:', e.message));
+
       return res.json({
         success: true,
         message: 'Report resolved and logged in audit registry.',

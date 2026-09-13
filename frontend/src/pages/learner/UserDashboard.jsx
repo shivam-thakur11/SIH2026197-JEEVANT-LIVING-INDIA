@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { useState, useMemo } from 'react';
+import { Link, useNavigate, useSearchParams, useLocation } from 'react-router-dom';
 import {
   User,
   ShoppingBag,
@@ -11,8 +11,6 @@ import {
   Package,
   Clock,
   MapPin,
-  CheckCircle2,
-  Trash2,
   ExternalLink,
   QrCode,
   Sparkles,
@@ -26,6 +24,9 @@ import TraditionCard from '../../components/common/TraditionCard';
 
 const UserDashboard = () => {
   const navigate = useNavigate();
+  const location = useLocation();
+  const [searchParams, setSearchParams] = useSearchParams();
+
   const {
     currentUser,
     setCurrentUser,
@@ -36,12 +37,23 @@ const UserDashboard = () => {
     products,
     traditions,
     savedCultures,
-    addToCart,
-    toggleWishlist,
     showToast,
   } = useApp();
 
-  const [activeTab, setActiveTab] = useState('overview');
+  const [internalTab, setInternalTab] = useState('overview');
+
+  const activeTab = useMemo(() => {
+    const tabParam = searchParams.get('tab');
+    if (tabParam) return tabParam;
+    if (location.pathname === '/wishlist' || location.pathname === '/saved-heritage') return 'wishlist';
+    if (location.pathname === '/saved-cultures') return 'cultures';
+    return internalTab;
+  }, [searchParams, location.pathname, internalTab]);
+
+  const handleTabSelect = (tab) => {
+    setInternalTab(tab);
+    setSearchParams({ tab });
+  };
 
   // Edit Profile Form State
   const [profileForm, setProfileForm] = useState({
@@ -101,49 +113,49 @@ const UserDashboard = () => {
           <nav className="dashboard-nav-list">
             <button
               className={`dash-nav-btn ${activeTab === 'overview' ? 'active' : ''}`}
-              onClick={() => setActiveTab('overview')}
+              onClick={() => handleTabSelect('overview')}
             >
               <Sparkles size={18} />
               <span>Overview</span>
             </button>
             <button
               className={`dash-nav-btn ${activeTab === 'profile' ? 'active' : ''}`}
-              onClick={() => setActiveTab('profile')}
+              onClick={() => handleTabSelect('profile')}
             >
               <User size={18} />
               <span>My Profile</span>
             </button>
             <button
               className={`dash-nav-btn ${activeTab === 'orders' ? 'active' : ''}`}
-              onClick={() => setActiveTab('orders')}
+              onClick={() => handleTabSelect('orders')}
             >
               <ShoppingBag size={18} />
               <span>Orders ({userOrders.length})</span>
             </button>
             <button
               className={`dash-nav-btn ${activeTab === 'bookings' ? 'active' : ''}`}
-              onClick={() => setActiveTab('bookings')}
+              onClick={() => handleTabSelect('bookings')}
             >
               <Calendar size={18} />
               <span>Bookings ({userBookings.length})</span>
             </button>
             <button
               className={`dash-nav-btn ${activeTab === 'wishlist' ? 'active' : ''}`}
-              onClick={() => setActiveTab('wishlist')}
+              onClick={() => handleTabSelect('wishlist')}
             >
               <Heart size={18} />
-              <span>Wishlist ({wishlist.length})</span>
+              <span>Saved Heritage ({wishlistedProducts.length + savedTraditionItems.length})</span>
             </button>
             <button
               className={`dash-nav-btn ${activeTab === 'cultures' ? 'active' : ''}`}
-              onClick={() => setActiveTab('cultures')}
+              onClick={() => handleTabSelect('cultures')}
             >
               <Bookmark size={18} />
-              <span>Saved Cultures ({savedCultures.length})</span>
+              <span>Living Traditions ({savedTraditionItems.length})</span>
             </button>
             <button
               className={`dash-nav-btn ${activeTab === 'settings' ? 'active' : ''}`}
-              onClick={() => setActiveTab('settings')}
+              onClick={() => handleTabSelect('settings')}
             >
               <Settings size={18} />
               <span>Settings</span>
@@ -210,7 +222,7 @@ const UserDashboard = () => {
               <div className="dash-section-block">
                 <div className="dash-section-header">
                   <h3>Upcoming Masterclasses</h3>
-                  <button onClick={() => setActiveTab('bookings')} className="dash-view-all">
+                  <button onClick={() => handleTabSelect('bookings')} className="dash-view-all">
                     View All Passes
                   </button>
                 </div>
@@ -259,7 +271,7 @@ const UserDashboard = () => {
               <div className="dash-section-block">
                 <div className="dash-section-header">
                   <h3>Recent Handicraft Orders</h3>
-                  <button onClick={() => setActiveTab('orders')} className="dash-view-all">
+                  <button onClick={() => handleTabSelect('orders')} className="dash-view-all">
                     View All Orders
                   </button>
                 </div>
@@ -305,7 +317,7 @@ const UserDashboard = () => {
               <div className="dash-section-block">
                 <div className="dash-section-header">
                   <h3>Saved Living Cultures & Traditions</h3>
-                  <button onClick={() => setActiveTab('cultures')} className="dash-view-all">
+                  <button onClick={() => handleTabSelect('cultures')} className="dash-view-all">
                     View All ({savedCultures.length})
                   </button>
                 </div>
@@ -323,7 +335,7 @@ const UserDashboard = () => {
                     {savedTraditionItems.slice(0, 6).map((trad) => (
                       <Link
                         key={trad.id || trad._id}
-                        to={`/traditions/${trad.id || trad._id}`}
+                        to={`/explore?state=${encodeURIComponent(trad.state || '')}`}
                         className="dash-culture-circle-item"
                         style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', textDecoration: 'none', color: 'inherit', width: '100px' }}
                       >
@@ -554,28 +566,52 @@ const UserDashboard = () => {
             </div>
           )}
 
-          {/* TAB 5: WISHLIST */}
+          {/* TAB 5: SAVED HERITAGE / WISHLIST */}
           {activeTab === 'wishlist' && (
             <div className="dash-pane-content">
               <div className="dash-pane-title-row">
-                <h2>Saved Handicrafts ({wishlistedProducts.length})</h2>
-                <p>Authentic pieces you have bookmarked for your heritage collection.</p>
+                <h2>Your Saved Heritage</h2>
+                <p>Authentic handicrafts, living traditions, and cultural heritage entries bookmarked in your collection.</p>
               </div>
 
-              {wishlistedProducts.length === 0 ? (
+              {wishlistedProducts.length === 0 && savedTraditionItems.length === 0 ? (
                 <div className="dash-empty-box">
-                  <Heart size={48} />
-                  <h3>Your Wishlist is Empty</h3>
-                  <p>Browse authentic handicrafts and tap the heart icon to save your favorites.</p>
-                  <Link to="/shop" className="btn btn-primary">
-                    Browse Handicrafts
+                  <Heart size={48} className="text-terracotta" />
+                  <h3>Your Saved Heritage</h3>
+                  <p>You haven't saved any traditions, crafts, or cultural experiences yet.</p>
+                  <Link to="/explore" className="btn btn-primary">
+                    Explore Culture
                   </Link>
                 </div>
               ) : (
-                <div className="products-grid-3">
-                  {wishlistedProducts.map((prod) => (
-                    <ProductCard key={prod.id} product={prod} />
-                  ))}
+                <div className="saved-heritage-sections">
+                  {wishlistedProducts.length > 0 && (
+                    <div className="saved-heritage-group" style={{ marginBottom: '36px' }}>
+                      <div className="dash-section-header">
+                        <h3>Saved Handicrafts ({wishlistedProducts.length})</h3>
+                        <Link to="/shop" className="dash-view-all">Browse More Crafts &rarr;</Link>
+                      </div>
+                      <div className="products-grid-3">
+                        {wishlistedProducts.map((prod) => (
+                          <ProductCard key={prod.id || prod._id} product={prod} />
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {savedTraditionItems.length > 0 && (
+                    <div className="saved-heritage-group">
+                      <div className="dash-section-header">
+                        <h3>Saved Living Traditions ({savedTraditionItems.length})</h3>
+                        <Link to="/explore" className="dash-view-all">Explore Traditions &rarr;</Link>
+                      </div>
+                      <div className="traditions-grid-3">
+                        {savedTraditionItems.map((tradition) => (
+                          <TraditionCard key={tradition.id || tradition._id} tradition={tradition} />
+                        ))}
+                      </div>
+                    </div>
+                  )}
                 </div>
               )}
             </div>
@@ -595,13 +631,13 @@ const UserDashboard = () => {
                   <h3>No Saved Traditions Yet</h3>
                   <p>Explore living traditions and bookmark them to keep track of preservation efforts.</p>
                   <Link to="/explore" className="btn btn-primary">
-                    Explore Traditions
+                    Explore Culture
                   </Link>
                 </div>
               ) : (
                 <div className="traditions-grid-3">
                   {savedTraditionItems.map((tradition) => (
-                    <TraditionCard key={tradition.id} tradition={tradition} />
+                    <TraditionCard key={tradition.id || tradition._id} tradition={tradition} />
                   ))}
                 </div>
               )}

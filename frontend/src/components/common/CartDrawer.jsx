@@ -25,18 +25,27 @@ const CartDrawer = () => {
 
   if (!isCartOpen) return null;
 
-  const handleCheckoutSubmit = (e) => {
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const handleCheckoutSubmit = async (e) => {
     e.preventDefault();
-    const order = placeOrder({
-      items: [...cart],
-      totalAmount: cartTotal,
-      address: shippingAddress,
-      paymentMethod:
-        paymentMethod === 'dbt_upi'
-          ? 'Direct DBT / UPI (0% Intermediary Fee)'
-          : 'Direct DBT / Card (0% Intermediary Fee)',
-    });
-    setOrderSuccess(order);
+    setIsSubmitting(true);
+    try {
+      const order = await placeOrder({
+        items: [...cart],
+        totalAmount: cartTotal,
+        address: shippingAddress,
+        paymentMethod:
+          paymentMethod === 'dbt_upi'
+            ? 'Test Mode: Simulated DBT / UPI'
+            : 'Test Mode: Simulated Card / DBT',
+      });
+      setOrderSuccess(order);
+    } catch (err) {
+      console.error('Checkout error:', err);
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const handleCloseAll = () => {
@@ -219,7 +228,12 @@ const CartDrawer = () => {
                   </div>
 
                   <div className="form-group">
-                    <label className="form-label">Fair-Trade Payment Method</label>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
+                      <label className="form-label" style={{ margin: 0 }}>Fair-Trade Payment Method</label>
+                      <span style={{ fontSize: '0.75rem', padding: '2px 8px', borderRadius: '4px', background: 'rgba(217, 119, 6, 0.15)', color: '#d97706', fontWeight: 600 }}>
+                        ⚡ Test Payment Mode (Simulated DBT)
+                      </span>
+                    </div>
                     <div className="payment-options-grid">
                       <label className={`payment-option ${paymentMethod === 'dbt_upi' ? 'selected' : ''}`}>
                         <input
@@ -230,8 +244,8 @@ const CartDrawer = () => {
                           onChange={() => setPaymentMethod('dbt_upi')}
                         />
                         <div>
-                          <strong>BHIM UPI / Direct DBT</strong>
-                          <p>Instant zero-commission transfer to artisan cluster account</p>
+                          <strong>Simulated BHIM UPI / Direct DBT</strong>
+                          <p>0% Platform fee simulation. Transferred directly to artisan cluster in MongoDB.</p>
                         </div>
                       </label>
                       <label className={`payment-option ${paymentMethod === 'card' ? 'selected' : ''}`}>
@@ -243,11 +257,14 @@ const CartDrawer = () => {
                           onChange={() => setPaymentMethod('card')}
                         />
                         <div>
-                          <strong>RuPay / Debit / Credit Card</strong>
-                          <p>Protected escrow with authentic GI verification stamp</p>
+                          <strong>Simulated RuPay / Card</strong>
+                          <p>Test mode transaction logged with cryptographic hash and authentic GI linkage.</p>
                         </div>
                       </label>
                     </div>
+                    <p style={{ fontSize: '0.75rem', color: 'var(--text-muted, #71717a)', marginTop: '8px', fontStyle: 'italic' }}>
+                      * Note: Sandbox / Test mode is active. No real monetary transactions are processed. Your order is recorded in the MongoDB database.
+                    </p>
                   </div>
 
                   <div className="modal-footer">
@@ -255,11 +272,12 @@ const CartDrawer = () => {
                       type="button"
                       className="btn btn-outline"
                       onClick={() => setCheckoutModalOpen(false)}
+                      disabled={isSubmitting}
                     >
                       Cancel
                     </button>
-                    <button type="submit" className="btn btn-primary">
-                      Confirm & Pay ₹{cartTotal.toLocaleString('en-IN')}
+                    <button type="submit" className="btn btn-primary" disabled={isSubmitting}>
+                      {isSubmitting ? 'Processing Order...' : `Confirm Test Order · ₹${cartTotal.toLocaleString('en-IN')}`}
                     </button>
                   </div>
                 </form>
@@ -270,9 +288,12 @@ const CartDrawer = () => {
                   <CheckCircle2 size={56} />
                 </div>
                 <h3>Heritage Order Confirmed!</h3>
-                <p className="order-id-badge">Order ID: {orderSuccess.id}</p>
+                <p className="order-id-badge">Order ID: {orderSuccess?.orderNumber || orderSuccess?._id || orderSuccess?.id || 'ORD-2026'}</p>
+                <div style={{ margin: '8px 0 16px', display: 'inline-block', padding: '4px 12px', borderRadius: '4px', background: 'rgba(34, 197, 94, 0.1)', color: '#16a34a', fontSize: '0.8rem', fontWeight: 600 }}>
+                  ✓ Recorded in MongoDB Atlas (Simulated DBT 0% Fee)
+                </div>
                 <p className="checkout-success-msg">
-                  Thank you for sustaining living Indian cultural heritage. 100% of your payment is being disbursed directly to the master craftspeople via DBT.
+                  Thank you for sustaining living Indian cultural heritage. Your order and simulated Direct Benefit Transfer (DBT) to the artisan cluster have been committed to the database.
                 </p>
                 <div className="checkout-success-actions">
                   <Link

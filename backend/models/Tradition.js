@@ -79,6 +79,25 @@ const traditionSchema = new mongoose.Schema(
       ref: 'User',
       default: null,
     },
+    sourceName: {
+      type: String,
+      trim: true,
+      default: null,
+    },
+    sourceUrl: {
+      type: String,
+      trim: true,
+      default: null,
+    },
+    sourceType: {
+      type: String,
+      enum: ['government_registry', 'unesco_archive', 'direct_artisan_submission', 'institutional', 'other', null],
+      default: 'government_registry',
+    },
+    isDevelopmentSeed: {
+      type: Boolean,
+      default: false,
+    },
     isDemoData: {
       type: Boolean,
       default: false,

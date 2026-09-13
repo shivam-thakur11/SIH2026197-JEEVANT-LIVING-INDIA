@@ -12,6 +12,8 @@ import * as reviewService from '../services/reviewService';
 import * as paymentService from '../services/paymentService';
 import * as reportService from '../services/reportService';
 import * as dashboardService from '../services/dashboardService';
+import * as notificationService from '../services/notificationService';
+import * as wishlistService from '../services/wishlistService';
 
 const AdminContext = createContext();
 
@@ -94,32 +96,7 @@ export const AdminProvider = ({ children }) => {
   };
 
   // Header notifications queue
-  const [notifications, setNotifications] = useState([
-    {
-      id: 'notif-1',
-      title: 'New Artisan Verification Request',
-      message: 'Rabi Narayan Rath submitted Pattachitra GI registration documents.',
-      time: '12 mins ago',
-      read: false,
-      type: 'artisan',
-    },
-    {
-      id: 'notif-2',
-      title: 'Workshop Registration Milestone',
-      message: 'Cobalt & Quartz Blue Pottery workshop is 100% booked.',
-      time: '1 hour ago',
-      read: false,
-      type: 'workshop',
-    },
-    {
-      id: 'notif-3',
-      title: 'Direct DBT Payout Successful',
-      message: '₹42,800 transferred to Smt. Dulari Devi (Zero Deductions).',
-      time: '3 hours ago',
-      read: true,
-      type: 'payment',
-    },
-  ]);
+  const [notifications, setNotifications] = useState([]);
 
   // Dynamic / DB-computed Statistics
   const [stats, setStats] = useState({
@@ -335,6 +312,46 @@ export const AdminProvider = ({ children }) => {
           : savedRes?.data?.data || [];
         setSavedCultures(rawSaved.map((s) => s.traditionId || s.tradition));
       } catch {}
+
+      try {
+        const wishRes = await wishlistService.getWishlist(userId);
+        if (wishRes?.ids && Array.isArray(wishRes.ids)) {
+          setWishlist(wishRes.ids);
+        } else if (Array.isArray(wishRes?.data)) {
+          setWishlist(wishRes.data.map((item) => item.productId || item._id || item.id));
+        }
+      } catch {}
+    } else {
+      // Default guest / seed learner wishlist
+      try {
+        const wishRes = await wishlistService.getWishlist('user-learner-1');
+        if (wishRes?.ids && Array.isArray(wishRes.ids)) {
+          setWishlist(wishRes.ids);
+        }
+      } catch {}
+    }
+
+    // 11. Fetch Live Database Notifications
+    try {
+      const notifRes = await notificationService.getNotifications({ limit: 30 });
+      const rawNotifs = Array.isArray(notifRes?.data)
+        ? notifRes.data
+        : notifRes?.data?.data || [];
+      setNotifications(
+        rawNotifs.map((n) => ({
+          ...n,
+          id: n._id || n.id,
+          unread: !n.read,
+          time: n.createdAt
+            ? new Date(n.createdAt).toLocaleDateString('en-IN', {
+                month: 'short',
+                day: 'numeric',
+              })
+            : 'Recent',
+        }))
+      );
+    } catch (err) {
+      console.warn('Could not load live notifications:', err.message);
     }
 
     setIsLiveDatabase(dbActive);
@@ -732,21 +749,35 @@ export const AdminProvider = ({ children }) => {
     0
   );
 
-  // ─── Wishlist Actions ─────────────────────────────────────────────────────
-  const toggleWishlist = (product) => {
+  // ─── Wishlist Actions (MongoDB-Backed) ────────────────────────────────────
+  const toggleWishlist = async (product) => {
     const prodId = typeof product === 'string' ? product : product.id || product._id;
-    setWishlist((prev) => {
-      const exists = prev.includes(prodId);
-      const updated = exists ? prev.filter((id) => id !== prodId) : [...prev, prodId];
-      try {
-        localStorage.setItem('jeevant_wishlist', JSON.stringify(updated));
-      } catch {}
-      showToast(
-        exists ? 'Removed from wishlist' : 'Saved to your wishlist!',
-        exists ? 'info' : 'success'
-      );
-      return updated;
-    });
+    const userId = currentUser?.id || currentUser?._id || 'user-learner-1';
+
+    try {
+      const res = await wishlistService.toggleWishlist(userId, prodId);
+      if (res.saved) {
+        setWishlist((prev) => [...prev.filter((id) => id !== prodId), prodId]);
+        showToast('Item saved to your wishlist!', 'success');
+      } else {
+        setWishlist((prev) => prev.filter((id) => id !== prodId));
+        showToast('Item removed from wishlist', 'info');
+      }
+    } catch {
+      // Local fallback
+      setWishlist((prev) => {
+        const exists = prev.includes(prodId);
+        const updated = exists ? prev.filter((id) => id !== prodId) : [...prev, prodId];
+        try {
+          localStorage.setItem('jeevant_wishlist', JSON.stringify(updated));
+        } catch {}
+        showToast(
+          exists ? 'Removed from wishlist' : 'Saved to your wishlist!',
+          exists ? 'info' : 'success'
+        );
+        return updated;
+      });
+    }
   };
 
   const isWishlisted = (productId) => wishlist.includes(productId);
@@ -960,8 +991,20 @@ export const AdminProvider = ({ children }) => {
     return { success: true, user: newUser };
   };
 
-  const markAllNotificationsAsRead = () => {
-    setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
+  const markAllNotificationsAsRead = async () => {
+    try {
+      await notificationService.markAllNotificationsRead();
+    } catch {}
+    setNotifications((prev) => prev.map((n) => ({ ...n, read: true, unread: false })));
+  };
+
+  const markNotificationRead = async (id) => {
+    try {
+      await notificationService.markNotificationRead(id);
+    } catch {}
+    setNotifications((prev) =>
+      prev.map((n) => (n.id === id || n._id === id ? { ...n, read: true, unread: false } : n))
+    );
   };
 
   return (
@@ -1052,6 +1095,7 @@ export const AdminProvider = ({ children }) => {
         dismissReport,
         deleteUser,
         toggleUserActive,
+        markNotificationRead,
         markAllNotificationsAsRead,
         showToast,
         refreshData: fetchAllData,

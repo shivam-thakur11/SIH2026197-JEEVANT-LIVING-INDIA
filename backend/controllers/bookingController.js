@@ -1,9 +1,11 @@
+const mongoose = require('mongoose');
 const Booking = require('../models/Booking');
 const Workshop = require('../models/Workshop');
 const Payment = require('../models/Payment');
 const AppError = require('../utils/AppError');
 const { isDBConnected } = require('../config/db');
 const demoStore = require('../utils/demoStore');
+const { createNotificationRecord } = require('./notificationController');
 
 /**
  * GET /api/bookings
@@ -16,10 +18,18 @@ const getBookings = async (req, res, next) => {
       const { userId, workshopId, page = 1, limit = 12 } = req.query;
 
       if (userId) {
-        filter.$or = [{ user: userId }, { userId }];
+        if (mongoose.Types.ObjectId.isValid(userId)) {
+          filter.$or = [{ user: userId }, { userId }];
+        } else {
+          filter.$or = [{ userId }, { userEmail: userId }];
+        }
       }
       if (workshopId) {
-        filter.$or = [{ workshop: workshopId }, { workshopId }];
+        if (mongoose.Types.ObjectId.isValid(workshopId)) {
+          filter.$or = [{ workshop: workshopId }, { workshopId }];
+        } else {
+          filter.workshopId = workshopId;
+        }
       }
 
       const p = Math.max(1, parseInt(page, 10) || 1);
@@ -86,7 +96,11 @@ const getBookingById = async (req, res, next) => {
  */
 const createBooking = async (req, res, next) => {
   try {
-    const bookingData = { ...req.body };
+    const bookingData = {
+      ...req.body,
+      userName: req.body.userName || req.body.attendeeName || (req.user && req.user.name) || 'Cultural Enthusiast',
+      userEmail: req.body.userEmail || req.body.attendeeEmail || (req.user && req.user.email) || 'learner@jeevant.org',
+    };
     const workshopId = bookingData.workshopId || bookingData.workshop;
     const seatsToBook = Number(bookingData.seats || 1);
 
@@ -141,6 +155,16 @@ const createBooking = async (req, res, next) => {
         status: 'Disbursed',
         paymentStatus: 'completed',
       });
+
+      // Trigger real notification
+      createNotificationRecord({
+        recipientRole: 'all',
+        type: 'booking',
+        title: 'Masterclass Seat Confirmed',
+        message: `Booking confirmed for "${workshop.title}" (${seatsToBook} seat(s)). Ref: ${bookingRef}`,
+        relatedEntity: 'Booking',
+        relatedEntityId: newBooking._id,
+      }).catch((e) => console.error('Notif error:', e.message));
 
       return res.status(201).json({ success: true, isLiveDatabase: true, data: newBooking });
     }

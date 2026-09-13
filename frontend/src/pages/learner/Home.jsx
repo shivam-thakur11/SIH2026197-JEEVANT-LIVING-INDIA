@@ -75,6 +75,8 @@ const Home = () => {
     e.preventDefault();
     if (searchQuery.trim()) {
       navigate(`/search?q=${encodeURIComponent(searchQuery.trim())}`);
+    } else {
+      navigate('/search');
     }
   };
 
@@ -313,7 +315,7 @@ const Home = () => {
           <div className="page-container cinematic-stats-container">
             <div className="ticker-stat-block">
               <div className="ticker-stat-num">
-                {stats.totalArtisans !== undefined ? stats.totalArtisans.toLocaleString('en-IN') : '1,482'}
+                {(stats?.totalArtisans ?? (artisans ? artisans.length : 0)).toLocaleString('en-IN')}
               </div>
               <div className="ticker-stat-label">Registered Master Artisans</div>
             </div>
@@ -322,7 +324,7 @@ const Home = () => {
 
             <div className="ticker-stat-block">
               <div className="ticker-stat-num">
-                {stats.totalTraditions !== undefined ? stats.totalTraditions : (traditions ? traditions.length : '78')}
+                {(stats?.totalTraditions ?? (traditions ? traditions.length : 0)).toLocaleString('en-IN')}
               </div>
               <div className="ticker-stat-label">Living Cultural Traditions</div>
             </div>
@@ -331,7 +333,7 @@ const Home = () => {
 
             <div className="ticker-stat-block">
               <div className="ticker-stat-num">
-                {stats.totalWorkshops !== undefined ? stats.totalWorkshops : (workshops ? workshops.length : '312')}
+                {(stats?.totalWorkshops ?? (workshops ? workshops.length : 0)).toLocaleString('en-IN')}
               </div>
               <div className="ticker-stat-label">Masterclasses Scheduled</div>
             </div>
@@ -340,7 +342,7 @@ const Home = () => {
 
             <div className="ticker-stat-block">
               <div className="ticker-stat-num text-gold">
-                {stats.totalRevenue || '₹48.2 Lakh'}
+                {stats?.totalRevenue || (stats?.revenue ? `₹${Number(stats.revenue).toLocaleString('en-IN')}` : '₹0')}
               </div>
               <div className="ticker-stat-label">100% Direct DBT Disbursed</div>
             </div>

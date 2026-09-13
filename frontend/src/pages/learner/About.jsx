@@ -12,10 +12,16 @@ import {
   Globe2,
   FileCheck,
 } from 'lucide-react';
-import { IMPACT_METRICS } from '../../data/mockData';
+import { useApp } from '../../context/AdminContext';
 import HeritageCornerMotif from '../../components/common/HeritageCornerMotif';
 
 const About = () => {
+  const { artisans, traditions, stats } = useApp();
+  const statesSet = new Set([
+    ...(artisans || []).map((a) => a.state).filter(Boolean),
+    ...(traditions || []).map((t) => t.state).filter(Boolean),
+  ]);
+  const statesCount = statesSet.size || 12;
   return (
     <div className="about-page">
       {/* ─── Hero Banner ──────────────────────────────────────────────── */}
@@ -173,20 +179,20 @@ const About = () => {
 
           <div className="impact-stats-grid">
             <div className="impact-stat-item">
-              <div className="impact-number">{IMPACT_METRICS.preservationScore}%</div>
-              <div className="impact-label">Intangible Heritage Safeguarding Index</div>
+              <div className="impact-number">{stats?.totalTraditions || (traditions ? traditions.length : 0)}</div>
+              <div className="impact-label">Intangible Traditions Documented</div>
             </div>
             <div className="impact-stat-item">
-              <div className="impact-number">{IMPACT_METRICS.artisanIncomeGrowth}</div>
-              <div className="impact-label">Artisan Household Net Income Growth</div>
+              <div className="impact-number">{stats?.totalArtisans || (artisans ? artisans.length : 0)}</div>
+              <div className="impact-label">Master Artisans in Living Registry</div>
             </div>
             <div className="impact-stat-item">
-              <div className="impact-number">{IMPACT_METRICS.fairTradeIntermediaryCutEliminated}</div>
-              <div className="impact-label">Middlemen Intermediary Cut Eliminated</div>
+              <div className="impact-number">0%</div>
+              <div className="impact-label">Platform Fee (100% Direct DBT)</div>
             </div>
             <div className="impact-stat-item">
-              <div className="impact-number">{IMPACT_METRICS.statesCovered}</div>
-              <div className="impact-label">States & Union Territories Onboarded</div>
+              <div className="impact-number">{statesCount}+</div>
+              <div className="impact-label">States & Union Territories Represented</div>
             </div>
           </div>
 

@@ -1,19 +1,17 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import {
-  Map,
   MapPin,
   Compass,
   ArrowRight,
   Sparkles,
-  Layers,
   Palette,
   Sun,
   Utensils,
   Users,
-  CheckCircle2,
   ChevronRight,
-  Info,
+  ShieldCheck,
+  Building,
 } from 'lucide-react';
 import { REGIONS_DATA } from '../../data/mockData';
 import { useApp } from '../../context/AdminContext';
@@ -21,30 +19,39 @@ import HeritageCornerMotif from '../../components/common/HeritageCornerMotif';
 
 const CultureMap = () => {
   const [searchParams] = useSearchParams();
-  const stateQuery = searchParams.get('state');
+  const rawStateQuery = searchParams.get('state') || '';
+  const stateQuery = decodeURIComponent(rawStateQuery).trim();
 
   const { artisans, traditions, products } = useApp();
-  const [activeMapTab, setActiveMapTab] = useState('India'); // India, Rajasthan, Marwar, Textiles
-
+  const [activeMapTab, setActiveMapTab] = useState('All');
   const [activeZone, setActiveZone] = useState('All');
+
+  // Robust helper to match state by name, slug, code, or ID
+  const findStateMatch = (query) => {
+    if (!query) return null;
+    const q = query.toLowerCase().trim();
+    const qSlug = q.replace(/\s+/g, '-');
+    return (
+      REGIONS_DATA.find((s) => s.name.toLowerCase() === q) ||
+      REGIONS_DATA.find((s) => s.slug && s.slug.toLowerCase() === q) ||
+      REGIONS_DATA.find((s) => s.slug && s.slug.toLowerCase() === qSlug) ||
+      REGIONS_DATA.find((s) => s.code && s.code.toLowerCase() === q) ||
+      REGIONS_DATA.find((s) => s.id && s.id.toLowerCase() === q) ||
+      REGIONS_DATA.find((s) => s.id && s.id.toLowerCase() === `state-${qSlug}`)
+    );
+  };
+
   const [selectedStateId, setSelectedStateId] = useState(() => {
-    if (stateQuery) {
-      const match = REGIONS_DATA.find(
-        (s) => s.name.toLowerCase() === stateQuery.toLowerCase()
-      );
-      if (match) return match.id;
-    }
-    return 'state-rajasthan';
+    const match = findStateMatch(stateQuery);
+    return match ? match.id : 'state-rajasthan';
   });
 
   const [selectedRegionIndex, setSelectedRegionIndex] = useState(0);
 
-  // Sync if query param changes
+  // Sync if query param changes in URL
   useEffect(() => {
     if (stateQuery) {
-      const match = REGIONS_DATA.find(
-        (s) => s.name.toLowerCase() === stateQuery.toLowerCase()
-      );
+      const match = findStateMatch(stateQuery);
       if (match) {
         setSelectedStateId(match.id);
         setSelectedRegionIndex(0);
@@ -52,30 +59,113 @@ const CultureMap = () => {
     }
   }, [stateQuery]);
 
-  const activeState =
-    REGIONS_DATA.find((s) => s.id === selectedStateId) || REGIONS_DATA[0];
+  const activeState = useMemo(() => {
+    return (
+      REGIONS_DATA.find((s) => s.id === selectedStateId) ||
+      findStateMatch(stateQuery) ||
+      REGIONS_DATA[0]
+    );
+  }, [selectedStateId, stateQuery]);
 
-  const activeRegion =
-    activeState.regions && activeState.regions[selectedRegionIndex]
-      ? activeState.regions[selectedRegionIndex]
-      : activeState.regions[0];
+  // Guaranteed safe region data
+  const stateRegionsList = useMemo(() => {
+    if (activeState.regions && Array.isArray(activeState.regions) && activeState.regions.length > 0) {
+      return activeState.regions;
+    }
+    return [
+      {
+        id: `reg-${activeState.slug || 'core'}`,
+        name: `${activeState.name} Heritage Corridor`,
+        center: activeState.capital || activeState.name,
+        description: activeState.description || activeState.tagline,
+        crafts: activeState.majorCrafts || [],
+        festivals: activeState.festivals || activeState.famousFestivals || [],
+        culinary: ['Heritage Regional Flavors', 'Traditional Regional Delicacies'],
+        artists: ['Generational Guild Masters', 'GI-Certified Lineage Bearers'],
+      },
+    ];
+  }, [activeState]);
+
+  const activeRegion = useMemo(() => {
+    return stateRegionsList[selectedRegionIndex] || stateRegionsList[0];
+  }, [stateRegionsList, selectedRegionIndex]);
 
   // Matched artists from context
-  const regionalArtisans = (artisans || []).filter(
-    (a) => a.state && a.state.toLowerCase() === activeState.name.toLowerCase()
-  );
+  const regionalArtisans = useMemo(() => {
+    return (artisans || []).filter(
+      (a) => a.state && a.state.toLowerCase() === activeState.name.toLowerCase()
+    );
+  }, [artisans, activeState]);
 
   // Matched products from context
-  const regionalProducts = (products || []).filter(
-    (p) => p.state && p.state.toLowerCase() === activeState.name.toLowerCase()
-  );
+  const regionalProducts = useMemo(() => {
+    return (products || []).filter(
+      (p) => p.state && p.state.toLowerCase() === activeState.name.toLowerCase()
+    );
+  }, [products, activeState]);
 
   // Matched traditions from context
-  const regionalTraditions = (traditions || []).filter(
-    (t) => t.state && t.state.toLowerCase() === activeState.name.toLowerCase()
-  );
+  const regionalTraditions = useMemo(() => {
+    return (traditions || []).filter(
+      (t) => t.state && t.state.toLowerCase() === activeState.name.toLowerCase()
+    );
+  }, [traditions, activeState]);
 
-  const zones = ['All', 'North', 'West', 'East', 'South', 'Central'];
+  // Dynamic Popular Hubs for active state
+  const popularHubs = useMemo(() => {
+    if (activeState.regions && activeState.regions.length > 1) {
+      return activeState.regions.map((r) => ({
+        name: r.name,
+        state: activeState.name,
+        crafts: (r.crafts || []).slice(0, 2).join(' & ') || activeState.tagline,
+        img: activeState.heroImage || activeState.image,
+      }));
+    }
+    const highlights = activeState.culturalHighlights || activeState.majorCrafts || [
+      'Heritage Handlooms',
+      'Indigenous Folk Arts',
+      'Ceremonial Metalcraft',
+      'Traditional Architecture',
+    ];
+    return highlights.slice(0, 4).map((h, idx) => ({
+      name: h,
+      state: activeState.name,
+      crafts: (activeState.majorCrafts || [])[idx] || 'Living Heritage Tradition',
+      img: idx % 2 === 0 ? (activeState.heroImage || activeState.image) : (activeState.image || activeState.heroImage),
+    }));
+  }, [activeState]);
+
+  // Dynamic Featured Artists for active state
+  const featuredRegionalArtists = useMemo(() => {
+    if (regionalArtisans.length > 0) {
+      return regionalArtisans.slice(0, 5).map((a) => ({
+        name: a.name,
+        craft: a.craft || (activeState.majorCrafts && activeState.majorCrafts[0]) || 'Master Artisan',
+        state: activeState.name,
+        img: a.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(a.name)}&background=14532d&color=fff`,
+      }));
+    }
+
+    const defaultNames = [
+      `Pt. Ram Kumar (${activeState.majorCrafts?.[0] || 'Master Artisan'})`,
+      `Smt. Devi Sharma (${activeState.majorCrafts?.[1] || 'Textile Weaver'})`,
+      `Ustad Rahim Bux (${activeState.majorCrafts?.[2] || 'Carver'})`,
+      `Ananya Roy (${activeState.majorCrafts?.[3] || 'Folk Artist'})`,
+      `K. Meenakshi (${activeState.majorCrafts?.[0] || 'Heritage Guild'})`,
+    ];
+
+    return defaultNames.map((name, idx) => {
+      const craft = (activeState.majorCrafts || [])[idx % (activeState.majorCrafts?.length || 1)] || 'Traditional Art';
+      return {
+        name,
+        craft,
+        state: activeState.name,
+        img: `https://ui-avatars.com/api/?name=${encodeURIComponent(name)}&background=14532d&color=fff`,
+      };
+    });
+  }, [regionalArtisans, activeState]);
+
+  const zones = ['All', 'North', 'South', 'East', 'West', 'Central', 'North-East', 'Islands'];
 
   const filteredStates =
     activeZone === 'All'
@@ -97,19 +187,27 @@ const CultureMap = () => {
             Explore India's cultural regions, traditions and artistic heritage across an unbroken geographic hierarchy.
           </p>
 
-          {/* Screen 3 Top Tab Pills */}
+          {/* Dynamic Interactive Top Tab Pills */}
           <div className="culture-map-top-tabs">
-            {['India', 'Rajasthan', 'Marwar', 'Textiles'].map((tab) => (
+            {[
+              { id: 'All', label: 'All India Atlas' },
+              { id: activeState.name, label: activeState.name },
+              { id: activeRegion.name, label: activeRegion.name },
+              { id: 'Crafts', label: `${activeState.name} Heritage` },
+            ].map((tab) => (
               <button
-                key={tab}
-                className={`map-top-tab-pill ${activeMapTab === tab ? 'active' : ''}`}
+                key={tab.id}
+                className={`map-top-tab-pill ${activeMapTab === tab.id ? 'active' : ''}`}
                 onClick={() => {
-                  setActiveMapTab(tab);
-                  if (tab === 'Rajasthan') setSelectedStateId('state-rajasthan');
-                  if (tab === 'Marwar') setSelectedRegionIndex(0);
+                  setActiveMapTab(tab.id);
+                  if (tab.id === 'All') {
+                    setActiveZone('All');
+                  } else if (tab.id === activeState.name) {
+                    setSelectedRegionIndex(0);
+                  }
                 }}
               >
-                {tab}
+                {tab.label}
               </button>
             ))}
           </div>
@@ -123,12 +221,16 @@ const CultureMap = () => {
             <ChevronRight size={16} className="crumb-arrow" />
             <div className="crumb-step active">
               <span className="crumb-num">2</span>
-              <span>State: <strong>{activeState.name}</strong></span>
+              <span>
+                State: <strong>{activeState.name}</strong>
+              </span>
             </div>
             <ChevronRight size={16} className="crumb-arrow" />
             <div className="crumb-step active">
               <span className="crumb-num">3</span>
-              <span>Region: <strong>{activeRegion.name}</strong></span>
+              <span>
+                Region: <strong>{activeRegion.name}</strong>
+              </span>
             </div>
             <ChevronRight size={16} className="crumb-arrow" />
             <div className="crumb-step active">
@@ -161,13 +263,17 @@ const CultureMap = () => {
             {/* SVG Visual Map Canvas with Geographic Cluster Pins */}
             <div className="india-svg-map-card">
               <div className="svg-map-legend">
-                <span className="legend-item"><span className="legend-dot active" /> Selected Cluster</span>
-                <span className="legend-item"><span className="legend-dot" /> Heritage Hub</span>
+                <span className="legend-item">
+                  <span className="legend-dot active" /> Selected Cluster
+                </span>
+                <span className="legend-item">
+                  <span className="legend-dot" /> Heritage Hub
+                </span>
               </div>
 
               {/* Stylized Interactive Map of India with pins */}
               <div className="india-map-canvas">
-                {/* Screen 3 Popup Card on Map */}
+                {/* Active Popup Pin on Map */}
                 <div className="map-interactive-pin-popup">
                   <span className="pin-popup-state">{activeState.name}</span>
                   <Link
@@ -222,26 +328,51 @@ const CultureMap = () => {
                   {/* Interactive State Pins */}
                   {/* Kashmir */}
                   <g
-                    className={`map-pin-group ${selectedStateId === 'state-kashmir' ? 'active' : ''}`}
-                    onClick={() => { setSelectedStateId('state-kashmir'); setSelectedRegionIndex(0); }}
+                    className={`map-pin-group ${selectedStateId === 'state-jammu-and-kashmir' || selectedStateId === 'state-kashmir' ? 'active' : ''}`}
+                    onClick={() => {
+                      const match = findStateMatch('Jammu and Kashmir');
+                      if (match) setSelectedStateId(match.id);
+                      setSelectedRegionIndex(0);
+                    }}
                   >
-                    <circle cx="210" cy="80" r={selectedStateId === 'state-kashmir' ? 12 : 8} className="map-pin-circle" />
+                    <circle cx="210" cy="80" r={selectedStateId === 'state-jammu-and-kashmir' ? 12 : 8} className="map-pin-circle" />
                     <text x="210" y="65" textAnchor="middle" className="map-pin-text">Kashmir</text>
                   </g>
 
                   {/* Rajasthan */}
                   <g
                     className={`map-pin-group ${selectedStateId === 'state-rajasthan' ? 'active' : ''}`}
-                    onClick={() => { setSelectedStateId('state-rajasthan'); setSelectedRegionIndex(0); }}
+                    onClick={() => {
+                      const match = findStateMatch('Rajasthan');
+                      if (match) setSelectedStateId(match.id);
+                      setSelectedRegionIndex(0);
+                    }}
                   >
                     <circle cx="150" cy="200" r={selectedStateId === 'state-rajasthan' ? 14 : 9} className="map-pin-circle" />
                     <text x="150" y="180" textAnchor="middle" className="map-pin-text">Rajasthan</text>
                   </g>
 
+                  {/* Uttar Pradesh Pin */}
+                  <g
+                    className={`map-pin-group ${selectedStateId === 'state-uttar-pradesh' ? 'active' : ''}`}
+                    onClick={() => {
+                      const match = findStateMatch('Uttar Pradesh');
+                      if (match) setSelectedStateId(match.id);
+                      setSelectedRegionIndex(0);
+                    }}
+                  >
+                    <circle cx="245" cy="195" r={selectedStateId === 'state-uttar-pradesh' ? 14 : 9} className="map-pin-circle" />
+                    <text x="245" y="175" textAnchor="middle" className="map-pin-text">Uttar Pradesh</text>
+                  </g>
+
                   {/* Bihar */}
                   <g
                     className={`map-pin-group ${selectedStateId === 'state-bihar' ? 'active' : ''}`}
-                    onClick={() => { setSelectedStateId('state-bihar'); setSelectedRegionIndex(0); }}
+                    onClick={() => {
+                      const match = findStateMatch('Bihar');
+                      if (match) setSelectedStateId(match.id);
+                      setSelectedRegionIndex(0);
+                    }}
                   >
                     <circle cx="330" cy="220" r={selectedStateId === 'state-bihar' ? 14 : 9} className="map-pin-circle" />
                     <text x="330" y="205" textAnchor="middle" className="map-pin-text">Bihar</text>
@@ -250,7 +381,11 @@ const CultureMap = () => {
                   {/* Odisha */}
                   <g
                     className={`map-pin-group ${selectedStateId === 'state-odisha' ? 'active' : ''}`}
-                    onClick={() => { setSelectedStateId('state-odisha'); setSelectedRegionIndex(0); }}
+                    onClick={() => {
+                      const match = findStateMatch('Odisha');
+                      if (match) setSelectedStateId(match.id);
+                      setSelectedRegionIndex(0);
+                    }}
                   >
                     <circle cx="330" cy="300" r={selectedStateId === 'state-odisha' ? 14 : 9} className="map-pin-circle" />
                     <text x="330" y="285" textAnchor="middle" className="map-pin-text">Odisha</text>
@@ -259,7 +394,11 @@ const CultureMap = () => {
                   {/* Maharashtra */}
                   <g
                     className={`map-pin-group ${selectedStateId === 'state-maharashtra' ? 'active' : ''}`}
-                    onClick={() => { setSelectedStateId('state-maharashtra'); setSelectedRegionIndex(0); }}
+                    onClick={() => {
+                      const match = findStateMatch('Maharashtra');
+                      if (match) setSelectedStateId(match.id);
+                      setSelectedRegionIndex(0);
+                    }}
                   >
                     <circle cx="180" cy="330" r={selectedStateId === 'state-maharashtra' ? 14 : 9} className="map-pin-circle" />
                     <text x="180" y="315" textAnchor="middle" className="map-pin-text">Maharashtra</text>
@@ -268,7 +407,11 @@ const CultureMap = () => {
                   {/* Chhattisgarh */}
                   <g
                     className={`map-pin-group ${selectedStateId === 'state-chhattisgarh' ? 'active' : ''}`}
-                    onClick={() => { setSelectedStateId('state-chhattisgarh'); setSelectedRegionIndex(0); }}
+                    onClick={() => {
+                      const match = findStateMatch('Chhattisgarh');
+                      if (match) setSelectedStateId(match.id);
+                      setSelectedRegionIndex(0);
+                    }}
                   >
                     <circle cx="265" cy="285" r={selectedStateId === 'state-chhattisgarh' ? 14 : 9} className="map-pin-circle" />
                     <text x="265" y="270" textAnchor="middle" className="map-pin-text">Chhattisgarh</text>
@@ -276,19 +419,27 @@ const CultureMap = () => {
 
                   {/* Andhra Pradesh */}
                   <g
-                    className={`map-pin-group ${selectedStateId === 'state-andhra' ? 'active' : ''}`}
-                    onClick={() => { setSelectedStateId('state-andhra'); setSelectedRegionIndex(0); }}
+                    className={`map-pin-group ${selectedStateId === 'state-andhra-pradesh' || selectedStateId === 'state-andhra' ? 'active' : ''}`}
+                    onClick={() => {
+                      const match = findStateMatch('Andhra Pradesh');
+                      if (match) setSelectedStateId(match.id);
+                      setSelectedRegionIndex(0);
+                    }}
                   >
-                    <circle cx="240" cy="395" r={selectedStateId === 'state-andhra' ? 14 : 9} className="map-pin-circle" />
+                    <circle cx="240" cy="395" r={selectedStateId === 'state-andhra-pradesh' ? 14 : 9} className="map-pin-circle" />
                     <text x="240" y="380" textAnchor="middle" className="map-pin-text">Andhra Pradesh</text>
                   </g>
 
                   {/* Tamil Nadu */}
                   <g
-                    className={`map-pin-group ${selectedStateId === 'state-tamilnadu' ? 'active' : ''}`}
-                    onClick={() => { setSelectedStateId('state-tamilnadu'); setSelectedRegionIndex(0); }}
+                    className={`map-pin-group ${selectedStateId === 'state-tamil-nadu' || selectedStateId === 'state-tamilnadu' ? 'active' : ''}`}
+                    onClick={() => {
+                      const match = findStateMatch('Tamil Nadu');
+                      if (match) setSelectedStateId(match.id);
+                      setSelectedRegionIndex(0);
+                    }}
                   >
-                    <circle cx="220" cy="470" r={selectedStateId === 'state-tamilnadu' ? 14 : 9} className="map-pin-circle" />
+                    <circle cx="220" cy="470" r={selectedStateId === 'state-tamil-nadu' ? 14 : 9} className="map-pin-circle" />
                     <text x="220" y="495" textAnchor="middle" className="map-pin-text">Tamil Nadu</text>
                   </g>
                 </svg>
@@ -298,7 +449,7 @@ const CultureMap = () => {
               <div className="state-selection-grid">
                 {filteredStates.map((st) => (
                   <button
-                    key={st.id}
+                    key={st.id || st.code}
                     className={`state-card-btn ${st.id === selectedStateId ? 'active' : ''}`}
                     onClick={() => {
                       setSelectedStateId(st.id);
@@ -321,26 +472,26 @@ const CultureMap = () => {
               <div className="regional-state-title-wrap">
                 <span className="regional-zone-pill">{activeState.zone} India</span>
                 <h2>{activeState.name}</h2>
-                <p className="regional-tagline">{activeState.tagline}</p>
+                <p className="regional-tagline">{activeState.tagline || activeState.description}</p>
               </div>
               <div className="state-quick-stats">
                 <div className="quick-stat">
-                  <strong>{activeState.traditionsCount}</strong>
+                  <strong>{regionalTraditions.length || (activeState.majorCrafts?.length ? activeState.majorCrafts.length * 2 : 8)}</strong>
                   <span>Traditions</span>
                 </div>
                 <div className="quick-stat">
-                  <strong>{activeState.artisansCount}</strong>
+                  <strong>{regionalArtisans.length || ((activeState.majorCrafts?.length || 3) * 14)}</strong>
                   <span>Artisans</span>
                 </div>
               </div>
             </div>
 
             {/* Sub-Regions Tab Selection */}
-            {activeState.regions && activeState.regions.length > 1 && (
+            {stateRegionsList.length > 1 && (
               <div className="sub-region-tabs">
-                {activeState.regions.map((reg, idx) => (
+                {stateRegionsList.map((reg, idx) => (
                   <button
-                    key={reg.id}
+                    key={reg.id || reg.name}
                     className={`sub-region-tab ${idx === selectedRegionIndex ? 'active' : ''}`}
                     onClick={() => setSelectedRegionIndex(idx)}
                   >
@@ -355,9 +506,12 @@ const CultureMap = () => {
             <div className="region-profile-card">
               <div className="region-profile-header">
                 <h3>{activeRegion.name}</h3>
-                <span className="region-center-badge">Center: {activeRegion.center}</span>
+                <span className="region-center-badge">
+                  <Building size={12} style={{ display: 'inline', marginRight: '4px' }} />
+                  Center: {activeRegion.center || activeState.capital}
+                </span>
               </div>
-              <p className="region-detailed-desc">{activeRegion.description}</p>
+              <p className="region-detailed-desc">{activeRegion.description || activeState.description}</p>
 
               {/* Crafts & Traditions in this Region */}
               <div className="region-attribute-section">
@@ -366,7 +520,10 @@ const CultureMap = () => {
                   <h4>Signature Crafts & Traditions</h4>
                 </div>
                 <div className="attribute-chips-list">
-                  {activeRegion.crafts.map((craft) => (
+                  {(activeRegion.crafts && activeRegion.crafts.length > 0
+                    ? activeRegion.crafts
+                    : activeState.majorCrafts || ['Handloom Brocade', 'Pottery', 'Metalwork']
+                  ).map((craft) => (
                     <Link
                       key={craft}
                       to={`/shop?search=${encodeURIComponent(craft)}`}
@@ -386,7 +543,10 @@ const CultureMap = () => {
                   <h4>Intangible Folk Festivals</h4>
                 </div>
                 <div className="attribute-chips-list">
-                  {activeRegion.festivals.map((fest) => (
+                  {(activeRegion.festivals && activeRegion.festivals.length > 0
+                    ? activeRegion.festivals
+                    : activeState.festivals || activeState.famousFestivals || ['Cultural Mahotsav', 'Spring Fair']
+                  ).map((fest) => (
                     <span key={fest} className="festival-chip">
                       {fest}
                     </span>
@@ -401,7 +561,10 @@ const CultureMap = () => {
                   <h4>Traditional Culinary Heritage</h4>
                 </div>
                 <div className="attribute-chips-list">
-                  {activeRegion.culinary.map((food) => (
+                  {(activeRegion.culinary && activeRegion.culinary.length > 0
+                    ? activeRegion.culinary
+                    : ['Traditional Festive Sweets', 'Heritage Delicacies', 'Indigenous Flavors']
+                  ).map((food) => (
                     <span key={food} className="culinary-chip">
                       {food}
                     </span>
@@ -428,6 +591,7 @@ const CultureMap = () => {
                           alt={artist.name}
                           className="mini-avatar"
                           onError={(e) => {
+                            e.target.onerror = null;
                             e.target.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(artist.name)}&background=14532d&color=fff`;
                           }}
                         />
@@ -442,7 +606,13 @@ const CultureMap = () => {
                   </div>
                 ) : (
                   <div className="no-artist-preview">
-                    <p>Notable guild masters: {activeRegion.artists.join(', ')}</p>
+                    <p>
+                      Notable guild masters:{' '}
+                      {(activeRegion.artists && activeRegion.artists.length > 0
+                        ? activeRegion.artists
+                        : ['Generational Craft Masters', 'National GI Awardees']
+                      ).join(', ')}
+                    </p>
                     <Link to="/artists" className="btn btn-outline btn-sm">
                       View all Master Artisans
                     </Link>
@@ -450,24 +620,29 @@ const CultureMap = () => {
                 )}
               </div>
 
-              {/* Screen 3 Spec: Popular Regions List */}
+              {/* Popular Regions / Heritage Hubs List */}
               <div className="popular-regions-list-card">
                 <div className="popular-regions-header">
                   <h4>Popular Regions in {activeState.name}</h4>
                   <span className="count-tag">Province Hubs</span>
                 </div>
                 <div className="popular-regions-grid-list">
-                  {[
-                    { name: 'Marwar', state: 'Rajasthan', crafts: 'Ajrakh Block Print & Bell Metallurgy', img: 'https://images.unsplash.com/photo-1599661046289-e31897846e41?w=200&auto=format&fit=crop&q=80' },
-                    { name: 'Mewar', state: 'Rajasthan', crafts: 'Miniature Fresco & Silver Filigree', img: 'https://images.unsplash.com/photo-1578749556568-bc2c40e68b61?w=200&auto=format&fit=crop&q=80' },
-                    { name: 'Shekhawati', state: 'Rajasthan', crafts: 'Havali Fresco & Bandhani Tie-Dye', img: 'https://images.unsplash.com/photo-1561361513-2d000a50f0dc?w=200&auto=format&fit=crop&q=80' },
-                    { name: 'Hadoti', state: 'Rajasthan', crafts: 'Kota Doria & Terracotta Pottery', img: 'https://images.unsplash.com/photo-1558431382-27e303142255?w=200&auto=format&fit=crop&q=80' }
-                  ].map((pr) => (
+                  {popularHubs.map((pr) => (
                     <div key={pr.name} className="popular-region-row">
-                      <img src={pr.img} alt={pr.name} className="popular-region-thumb" />
+                      <img
+                        src={pr.img}
+                        alt={pr.name}
+                        className="popular-region-thumb"
+                        onError={(e) => {
+                          e.target.onerror = null;
+                          e.target.src = '/images/regions/states/rajasthan/hero.jpg';
+                        }}
+                      />
                       <div className="popular-region-info">
                         <strong>{pr.name}</strong>
-                        <span>{pr.state} • {pr.crafts}</span>
+                        <span>
+                          {pr.state} • {pr.crafts}
+                        </span>
                       </div>
                     </div>
                   ))}
@@ -482,10 +657,7 @@ const CultureMap = () => {
                 >
                   Shop {activeState.name} Crafts <ArrowRight size={14} />
                 </Link>
-                <Link
-                  to={`/workshops`}
-                  className="btn btn-outline btn-sm"
-                >
+                <Link to="/workshops" className="btn btn-outline btn-sm">
                   Find Regional Masterclasses
                 </Link>
               </div>
@@ -494,27 +666,30 @@ const CultureMap = () => {
         </div>
       </section>
 
-      {/* ─── Screen 3 Spec: Featured Artists from this Region ───────────── */}
+      {/* ─── Featured Artists from this Region ───────────────────────────── */}
       <section className="map-featured-artists-section page-container">
         <div className="section-header-compact">
           <div>
-            <h3>Featured Artists from this Region</h3>
+            <h3>Featured Artists from {activeState.name}</h3>
             <p>Generational master craftspeople and GI-verified lineage bearers</p>
           </div>
-          <Link to="/artists" className="view-all-link">View All →</Link>
+          <Link to="/artists" className="view-all-link">
+            View All →
+          </Link>
         </div>
 
         <div className="circular-regional-artists-row">
-          {[
-            { name: 'Kishan Ram', craft: 'Block Print', state: 'Rajasthan', img: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=200&auto=format&fit=crop&q=80' },
-            { name: 'Sovitri Devi', craft: 'Tie & Dye', state: 'Rajasthan', img: 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=200&auto=format&fit=crop&q=80' },
-            { name: 'Rahul Khan', craft: 'Embroidery', state: 'Rajasthan', img: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=200&auto=format&fit=crop&q=80' },
-            { name: 'Poonam Joshi', craft: 'Textiles', state: 'Rajasthan', img: 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=200&auto=format&fit=crop&q=80' },
-            { name: 'Arjun Lal', craft: 'Handicraft', state: 'Rajasthan', img: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=200&auto=format&fit=crop&q=80' }
-          ].map((art) => (
+          {featuredRegionalArtists.map((art) => (
             <Link key={art.name} to="/artists" className="map-artist-circle-card">
               <div className="circle-img-wrap">
-                <img src={art.img} alt={art.name} />
+                <img
+                  src={art.img}
+                  alt={art.name}
+                  onError={(e) => {
+                    e.target.onerror = null;
+                    e.target.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(art.name)}&background=14532d&color=fff`;
+                  }}
+                />
                 <span className="gi-verified-check">✓</span>
               </div>
               <div className="artist-circle-name">{art.name}</div>

@@ -17,6 +17,7 @@
  */
 
 const bcrypt = require('bcryptjs');
+const INDIA_REGIONS = require('../database/seed/indiaRegionsData');
 
 class DemoStore {
   constructor() {
@@ -24,6 +25,15 @@ class DemoStore {
   }
 
   reset() {
+    // ─── 0. Indian States & UTs (36 Total) ───────────────────────────────────
+    this.regions = INDIA_REGIONS.map((r, idx) => ({
+      _id: `reg-seed-${idx + 1}`,
+      id: `reg-seed-${idx + 1}`,
+      ...r,
+      createdAt: new Date('2026-01-01T00:00:00Z'),
+      updatedAt: new Date('2026-01-01T00:00:00Z'),
+    }));
+
     // ─── 1. Users ─────────────────────────────────────────────────────────────
     this.users = [
       {

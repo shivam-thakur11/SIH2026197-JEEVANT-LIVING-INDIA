@@ -8,6 +8,7 @@ const {
 } = require('../controllers/traditionController');
 const { requireAuth } = require('../middleware/authMiddleware');
 const { requireRole } = require('../middleware/roleMiddleware');
+const { validate, traditionValidation } = require('../validators');
 
 const router = express.Router();
 
@@ -16,7 +17,7 @@ router.get('/', getAllTraditions);
 router.get('/:id', getTraditionById);
 
 // Protected: Admin only operations (support PUT and PATCH)
-router.post('/', requireAuth, requireRole('admin'), createTradition);
+router.post('/', requireAuth, requireRole('admin'), validate(traditionValidation), createTradition);
 router.put('/:id', requireAuth, requireRole('admin'), updateTradition);
 router.patch('/:id', requireAuth, requireRole('admin'), updateTradition);
 router.delete('/:id', requireAuth, requireRole('admin'), deleteTradition);

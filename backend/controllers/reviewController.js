@@ -2,6 +2,7 @@ const Review = require('../models/Review');
 const AppError = require('../utils/AppError');
 const { isDBConnected } = require('../config/db');
 const demoStore = require('../utils/demoStore');
+const { createNotificationRecord } = require('./notificationController');
 
 /** GET /api/reviews — List reviews */
 const getAllReviews = async (req, res, next) => {
@@ -82,6 +83,17 @@ const createReview = async (req, res, next) => {
 
     if (isDBConnected()) {
       const review = await Review.create(reviewData);
+
+      // Trigger notification
+      createNotificationRecord({
+        recipientRole: 'admin',
+        type: 'review',
+        title: 'New Cultural Review Submitted',
+        message: `${review.reviewerName} reviewed ${review.targetName || 'Craft & Artisan'}.`,
+        relatedEntity: 'Review',
+        relatedEntityId: review._id,
+      }).catch((e) => console.error('Notif error:', e.message));
+
       return res.status(201).json({
         success: true,
         message: 'Review submitted successfully.',

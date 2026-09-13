@@ -10,11 +10,12 @@ const {
 } = require('../controllers/reportController');
 const { requireAuth } = require('../middleware/authMiddleware');
 const { requireRole } = require('../middleware/roleMiddleware');
+const { validate, reportValidation } = require('../validators');
 
 const router = express.Router();
 
 // Any authenticated user can submit a report
-router.post('/', requireAuth, createReport);
+router.post('/', requireAuth, validate(reportValidation), createReport);
 
 // All other report routes require admin
 router.get('/', requireAuth, requireRole('admin'), getAllReports);
